@@ -1,0 +1,92 @@
+ 
+Species :    1 (Li), atom :    1
+ APW functions :
+  l =  0, energy derivative =  0 :   0.1500000000    
+  l =  1, energy derivative =  0 :   0.1500000000    
+  l =  2, energy derivative =  0 :   0.1500000000    
+  l =  3, energy derivative =  0 :   0.1500000000    
+  l =  4, energy derivative =  0 :   0.1500000000    
+  l =  5, energy derivative =  0 :   0.1500000000    
+  l =  6, energy derivative =  0 :   0.1500000000    
+  l =  7, energy derivative =  0 :   0.1500000000    
+  l =  8, energy derivative =  0 :   0.1500000000    
+ local-orbital functions :
+  l.o. =  1, l =  0, energy derivative =  0 :   0.1500000000    
+  l.o. =  1, l =  0, energy derivative =  1 :   0.1500000000    
+  l.o. =  2, l =  1, energy derivative =  0 :   0.1500000000    
+  l.o. =  2, l =  1, energy derivative =  1 :   0.1500000000    
+  l.o. =  3, l =  0, energy derivative =  0 :   0.1500000000    
+  l.o. =  3, l =  0, energy derivative =  0 :   -1.421967224    
+ 
+Species :    2 (Zn), atom :    1
+ APW functions :
+  l =  0, energy derivative =  0 :   0.1500000000    
+  l =  1, energy derivative =  0 :   0.1500000000    
+  l =  2, energy derivative =  0 :   0.1500000000    
+  l =  3, energy derivative =  0 :   0.1500000000    
+  l =  4, energy derivative =  0 :   0.1500000000    
+  l =  5, energy derivative =  0 :   0.1500000000    
+  l =  6, energy derivative =  0 :   0.1500000000    
+  l =  7, energy derivative =  0 :   0.1500000000    
+  l =  8, energy derivative =  0 :   0.1500000000    
+ local-orbital functions :
+  l.o. =  1, l =  0, energy derivative =  0 :   0.1500000000    
+  l.o. =  1, l =  0, energy derivative =  1 :   0.1500000000    
+  l.o. =  2, l =  1, energy derivative =  0 :   0.1500000000    
+  l.o. =  2, l =  1, energy derivative =  1 :   0.1500000000    
+  l.o. =  3, l =  2, energy derivative =  0 :   0.1500000000    
+  l.o. =  3, l =  2, energy derivative =  1 :   0.1500000000    
+  l.o. =  4, l =  1, energy derivative =  0 :   0.1500000000    
+  l.o. =  4, l =  1, energy derivative =  0 :   -2.699939558    
+  l.o. =  5, l =  2, energy derivative =  0 :   0.1500000000    
+  l.o. =  5, l =  2, energy derivative =  0 :  -0.5680468589E-02
+ 
+Species :    2 (Zn), atom :    2
+ APW functions :
+  l =  0, energy derivative =  0 :   0.1500000000    
+  l =  1, energy derivative =  0 :   0.1500000000    
+  l =  2, energy derivative =  0 :   0.1500000000    
+  l =  3, energy derivative =  0 :   0.1500000000    
+  l =  4, energy derivative =  0 :   0.1500000000    
+  l =  5, energy derivative =  0 :   0.1500000000    
+  l =  6, energy derivative =  0 :   0.1500000000    
+  l =  7, energy derivative =  0 :   0.1500000000    
+  l =  8, energy derivative =  0 :   0.1500000000    
+ local-orbital functions :
+  l.o. =  1, l =  0, energy derivative =  0 :   0.1500000000    
+  l.o. =  1, l =  0, energy derivative =  1 :   0.1500000000    
+  l.o. =  2, l =  1, energy derivative =  0 :   0.1500000000    
+  l.o. =  2, l =  1, energy derivative =  1 :   0.1500000000    
+  l.o. =  3, l =  2, energy derivative =  0 :   0.1500000000    
+  l.o. =  3, l =  2, energy derivative =  1 :   0.1500000000    
+  l.o. =  4, l =  1, energy derivative =  0 :   0.1500000000    
+  l.o. =  4, l =  1, energy derivative =  0 :   -2.699939558    
+  l.o. =  5, l =  2, energy derivative =  0 :   0.1500000000    
+  l.o. =  5, l =  2, energy derivative =  0 :  -0.5680468589E-02
+ 
+Species :    3 (Pt), atom :    1
+ APW functions :
+  l =  0, energy derivative =  0 :   0.1500000000    
+  l =  1, energy derivative =  0 :   0.1500000000    
+  l =  2, energy derivative =  0 :   0.1500000000    
+  l =  3, energy derivative =  0 :   0.1500000000    
+  l =  4, energy derivative =  0 :   0.1500000000    
+  l =  5, energy derivative =  0 :   0.1500000000    
+  l =  6, energy derivative =  0 :   0.1500000000    
+  l =  7, energy derivative =  0 :   0.1500000000    
+  l =  8, energy derivative =  0 :   0.1500000000    
+ local-orbital functions :
+  l.o. =  1, l =  0, energy derivative =  0 :   0.1500000000    
+  l.o. =  1, l =  0, energy derivative =  1 :   0.1500000000    
+  l.o. =  2, l =  1, energy derivative =  0 :   0.1500000000    
+  l.o. =  2, l =  1, energy derivative =  1 :   0.1500000000    
+  l.o. =  3, l =  2, energy derivative =  0 :   0.1500000000    
+  l.o. =  3, l =  2, energy derivative =  1 :   0.1500000000    
+  l.o. =  4, l =  3, energy derivative =  0 :   0.1500000000    
+  l.o. =  4, l =  3, energy derivative =  1 :   0.1500000000    
+  l.o. =  5, l =  3, energy derivative =  0 :   0.1500000000    
+  l.o. =  5, l =  3, energy derivative =  0 :   -2.223136425    
+  l.o. =  6, l =  1, energy derivative =  0 :   0.1500000000    
+  l.o. =  6, l =  1, energy derivative =  0 :   -1.691745064    
+  l.o. =  7, l =  2, energy derivative =  0 :   0.1500000000    
+  l.o. =  7, l =  2, energy derivative =  0 :   0.1811581121    

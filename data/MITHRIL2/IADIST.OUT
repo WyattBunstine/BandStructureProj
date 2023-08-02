@@ -1,0 +1,24 @@
+ 
+Distance between is =    1 (Li), ia =    1 and
+ is =    1 (Li), ia =    1 :    0.000000000    
+ is =    2 (Zn), ia =    1 :    4.978387625    
+ is =    2 (Zn), ia =    2 :    4.978387625    
+ is =    3 (Pd), ia =    1 :    5.748546871    
+ 
+Distance between is =    2 (Zn), ia =    1 and
+ is =    1 (Li), ia =    1 :    4.978387625    
+ is =    2 (Zn), ia =    1 :    0.000000000    
+ is =    2 (Zn), ia =    2 :    5.748546871    
+ is =    3 (Pd), ia =    1 :    4.978387625    
+ 
+Distance between is =    2 (Zn), ia =    2 and
+ is =    1 (Li), ia =    1 :    4.978387625    
+ is =    2 (Zn), ia =    1 :    5.748546871    
+ is =    2 (Zn), ia =    2 :    0.000000000    
+ is =    3 (Pd), ia =    1 :    4.978387625    
+ 
+Distance between is =    3 (Pd), ia =    1 and
+ is =    1 (Li), ia =    1 :    5.748546871    
+ is =    2 (Zn), ia =    1 :    4.978387625    
+ is =    2 (Zn), ia =    2 :    4.978387625    
+ is =    3 (Pd), ia =    1 :    0.000000000    
