@@ -179,7 +179,7 @@ def GenerateMatJson(path, MPID, option=["mp"]):
     file.close()
 
 
-def main():
+def oldmain():
     ID = ''
     file = ''
     stop = False
@@ -234,6 +234,3 @@ def main():
                 else:
                     plot.plotDOS(path, data)
 
-
-if __name__ == "__main__":
-    main()
