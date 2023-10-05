@@ -1,12 +1,8 @@
 {
   "MatType": "MP",
-  "MatLoc": "MP-19009",
+  "MatLoc": "mp-19009",
   "MatID": "MP-19009",
-  "tasks": [
-    "GS",
-    "BS",
-    "BSPandDOSP"
-  ],
+  "tasks": [    "GS",    "BS",    "BSPandDOSP"  ],
   "kpoints": "MP",
   "elkparams": {
     "primcell": true,
@@ -19,16 +15,8 @@
     "lmaxo": 6.0,
     "rgkmax": 7.0,
     "gmaxvr": 12.0,
-    "ngridk": [
-      2,
-      2,
-      2
-    ],
-    "bfieldc": [
-      0.0,
-      0.0,
-      -0.01
-    ],
+    "ngridk": [      2,      2,      2    ],
+    "bfieldc": [ 0.0,      0.0,      -0.01    ],
     "batch": true,
     "spinorb": true,
     "spinpol": true,
@@ -36,16 +24,8 @@
     "stype": 3,
     "swidth": 0.0001,
     "lmirep": true,
-    "dft+u": [
-      [
-        1,
-        5
-      ],
-      [
-        1,
-        2,
-        0.3
-      ]
-    ]
-  }
+    "dft+u": [[1,5],[1,2,0.3]]
+  },
+  "ROUNDING": 4,
+  "numBandPoints": 400
 }
