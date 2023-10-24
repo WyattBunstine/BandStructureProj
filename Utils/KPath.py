@@ -3,7 +3,14 @@ from pymatgen.symmetry.analyzer import SpacegroupAnalyzer
 from pymatgen.symmetry.kpath import *
 
 
-def get_kpoints(structure):
+def get_kpoints_SC(structure: pymatgen.core.structure.Structure):
+    kpoints = KPathSetyawanCurtarolo(structure.get_primitive_structure()).kpath
+    points = []
+    for point in kpoints['path'][0]:
+        points.append([point, list(kpoints['kpoints'][point])])
+    return points
+
+def get_kpoints_McQueen(structure):
 
     sym = SpacegroupAnalyzer(structure)
     lattice_type = sym.get_lattice_type()
