@@ -41,7 +41,7 @@ def plot(path, mat):
     plt.xlabel("Wave Vector")
     plt.title(str(mat["formula_pretty"])+" Band Structure")
     plt.show()
-    plt.savefig(path+"BandPlot.png")
+    # plt.savefig(path+"BandPlot.png")
 
 
 def plotDOS(path, mat):
