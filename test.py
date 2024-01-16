@@ -24,7 +24,7 @@ API_KEY = "cZPQqY0nH2aOGBqCGBfbibyF00XJZXWh"
 # config = "data/mp-4826_config.json"
 # config = "data/TIProj/mp-1214324/mp-1214324_config.json"
 # config = "data/mp-20311_config.json"
-config = "data/Other/Ag_Orig.json"
+config = "data/Ag2+Proj/Ag_Orig.json"
 with open(config) as f:
     config = json.load(f)
 main.from_config(config)
