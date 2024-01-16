@@ -26,7 +26,7 @@ def validate_config(config):
 
     # default required configuration options
     recs = ["MatType", "MatLoc", "MatID", "tasks", "kpoints", "elkparams", "ROUNDING", "numBandPoints", "remote",
-            "monitor"]
+            "monitor", "SGU"]
     # check that each is present, if one is missing, return false
     for rec in recs:
         if rec not in config.keys():
@@ -85,7 +85,7 @@ def gen_spacegroupin(path, mat: Structure):
     return 0
 
 
-def gen_elk_in(path, mat, config):
+def gen_elk_in(path, mat: pymatgen.core.structure.Structure, config):
     """Generate the elk.in file to run DFT with
 
     :param path: the path with the GEOMETRY.OUT file where elk.in will be generated
@@ -104,14 +104,23 @@ def gen_elk_in(path, mat, config):
     # add appropriate tasks
     file.write("tasks\n")
     if "GS" in config["tasks"]: file.write("  0\n")
+    if "SO" in config["tasks"]: file.write("  2\n")
+    if "DOS" in config["tasks"]: file.write("  10\n")
     if "BS" in config["tasks"]: file.write("  20\n")
+    if "OBS" in config["tasks"]: file.write("  22\n")
+    if "SBS" in config["tasks"]: file.write("  23\n")
     file.write("\n")
 
     # if band structure is to be generated, add plotting parameters and add k points
-    if "BS" in config["tasks"]:
+    if "BS" in config["tasks"] or "OBS" in config["tasks"] or "SBS" in config["tasks"]:
         file.write("plot1d\n")
         # adding k points to plot
-        kpoints = Utils.KPath.get_kpoints_SC(mat)
+        if config["kpoints"] == "MP":
+            kpoints = Utils.KPath.get_kpoints_SC(mat)
+        elif config["kpoints"] == "McQueen":
+            kpoints = Utils.KPath.get_kpoints_McQueen(mat)
+        else:
+            kpoints = config["kpoints"]
         file.write("  " + str(len(kpoints)) + " " + str(config["numBandPoints"]) + "\n")
         for point in kpoints:
             coords = "  " + str(point[1][0]) + " " + str(point[1][1]) + " " + str(point[1][2]) + "\n"
@@ -122,16 +131,20 @@ def gen_elk_in(path, mat, config):
         file.write("sppath\n  '/home/wbunsti1/elk/elk-8.8.26/species/'\n\n")
     else:
         file.write("sppath\n  '/home/wyatt/elk-8.8.26/species/'\n\n")
-    # add the crystal geometry from GEOMETRY.OUT file
 
-    geometry = False
-    if geometry:
+
+    # add the crystal geometry from GEOMETRY.OUT file, this only works for some crystals
+    if config["SGU"]:
         geometryfile = open(path + "GEOMETRY.OUT", 'r')
         for line in geometryfile:
             file.write(line)
         geometryfile.close()
+    # adding geometry directly, this is computed from lattice vectors and Wyckoff positions
     else:
-        struct = mat.get_primitive_structure()
+        # add the lattice vectors
+        struct = mat
+        if config["elkparams"]["primcell"] == ".true.":
+            struct = mat.get_primitive_structure()
         file.write("avec\n")
         for vec in struct.lattice.matrix:
             file.write("  ")
@@ -139,7 +152,7 @@ def gen_elk_in(path, mat, config):
                 a = round(param / BtoA, 10)
                 file.write(f'{a:.10f}'+"  ")
             file.write("\n")
-
+        # get the atoms and their positions
         species = {}
         for site in struct.sites:
             for specie in site.species:
@@ -147,10 +160,10 @@ def gen_elk_in(path, mat, config):
                     species[str(specie)].append(struct.lattice.get_fractional_coords(site.coords))
                 else:
                     species[str(specie)] = [struct.lattice.get_fractional_coords(site.coords)]
-
+        # print positions to elk.in file
         file.write("\natoms\n")
         file.write("  " + str(len(species.keys()))+"\n")
-        for specie in species.keys():
+        for specie in sorted(species.keys()):
             file.write("'" + specie + ".in'\n  " + str(len(species[specie]))+"\n")
             for site in species[specie]:
                 file.write("  ")
@@ -163,7 +176,7 @@ def gen_elk_in(path, mat, config):
     return 0
 
 
-def run_elk(path, config):
+def run_elk(config):
     """Function that actually runs elk, can run remotely on rockfish or locally
 
     :param path: the path to elk.in
@@ -174,33 +187,33 @@ def run_elk(path, config):
     if config["remote"]:
         # create directory for this DFT run
         out = subprocess.run(
-            ["ssh", "wbunsti1@login.rockfish.jhu.edu", "cd", "elk/elk-8.8.26/BSPOperDir;", "mkdir", config["MatID"]])
+            ["ssh", "wbunsti1@login.rockfish.jhu.edu", "cd", "elk/elk-8.8.26/BSPOperDir;", "mkdir", config["MatLoc"]+";", "exit"])
         # if the directory exists, clean it
         if not out.returncode == 0:
             # if the old file should be saved
             if not config["overwrite"]:
                 subprocess.run(
                     ["ssh", "wbunsti1@login.rockfish.jhu.edu", "cd", "elk/elk-8.8.26/BSPOperDir;", "zip", "-r", "old/" +
-                     config["MatID"] + ".zip", config["MatID"]])
+                     config["MatLoc"] + ".zip", config["MatLoc"]+";","exit"])
             # remove the old folder
             subprocess.run(
                 ["ssh", "wbunsti1@login.rockfish.jhu.edu", "cd", "elk/elk-8.8.26/BSPOperDir;", "rm", "-r",
-                 config["MatID"] + ";", "rm", "-r", config["MatID"] + ";"])
+                 config["MatLoc"] + ";", "rm", "-r", config["MatLoc"] +";","exit"])
             # create a fresh one
             subprocess.run(
                 ["ssh", "wbunsti1@login.rockfish.jhu.edu", "cd", "elk/elk-8.8.26/BSPOperDir;", "mkdir",
-                 config["MatID"]])
+                 config["MatLoc"]+";","exit"])
         # copy elk.in and elk.slurm
-        subprocess.run(["scp", path + "elk.in",
-                        "wbunsti1@login.rockfish.jhu.edu:/home/wbunsti1/elk/elk-8.8.26/BSPOperDir/" + config["MatID"]
-                        + "/elk.in"])
+        subprocess.run(["scp", config["MatLoc"] + "elk.in",
+                        "wbunsti1@login.rockfish.jhu.edu:/home/wbunsti1/elk/elk-8.8.26/BSPOperDir/" + config["MatLoc"]
+                        + "elk.in"])
         subprocess.run(["scp", "elk.slurm",
                         "wbunsti1@login.rockfish.jhu.edu:/home/wbunsti1/elk/elk-8.8.26/BSPOperDir/" + config[
-                            "MatID"] + "/elk.slurm"])
+                            "MatLoc"] + "elk.slurm"])
         # run the process
         subprocess.run(
-            ["ssh", "wbunsti1@login.rockfish.jhu.edu", "cd", "elk/elk-8.8.26/BSPOperDir/" + config["MatID"] + ";",
-             "sbatch elk.slurm"])
+            ["ssh", "wbunsti1@login.rockfish.jhu.edu", "cd", "elk/elk-8.8.26/BSPOperDir/" + config["MatLoc"] + ";",
+             "sbatch elk.slurm; exit"])
         # block to monitor progress
         if config["monitor"]:
             # track time it takes
@@ -212,17 +225,17 @@ def run_elk(path, config):
                 # wait for 30 seconds before updating
                 time.sleep(30)
                 # get rid of old INFO.OUT
-                if os.path.exists(path + "INFO.OUT"):
-                    os.remove(path + "INFO.OUT")
+                if os.path.exists(config["MatLoc"] + "INFO.OUT"):
+                    os.remove(config["MatLoc"] + "INFO.OUT")
                 # copy INFO.OUT file from remote
                 subprocess.run(
                     ["scp", "wbunsti1@login.rockfish.jhu.edu:/home/wbunsti1/elk/elk-8.8.26/BSPOperDir/" + config[
-                        "MatID"] + "/INFO.OUT", path + "INFO.OUT"])
+                        "MatLoc"] + "INFO.OUT", config["MatLoc"] + "INFO.OUT"])
                 # if it was copied successfully
-                if os.path.exists(path + "INFO.OUT"):
+                if os.path.exists(config["MatLoc"] + "INFO.OUT"):
                     failures = 0
                     # open info file
-                    with open(path + "INFO.OUT", 'rb') as f:
+                    with open(config["MatLoc"] + "INFO.OUT", 'rb') as f:
                         try:  # catch OSError in case convergence info can't be found
                             f.seek(-2, os.SEEK_END)
                             seek = True
@@ -266,12 +279,11 @@ def run_elk(path, config):
                             return -1
 
             # copy the remote files upon completion
+            time.sleep(30)
             print("ELK finished. Coping remote files")
-            subprocess.run(
-                ["scp", "-r", "wbunsti1@login.rockfish.jhu.edu:/home/wbunsti1/elk/elk-8.8.26/BSPOperDir/" + config[
-                    "MatID"] + "/*", path])
+            download_remote(config["MatLoc"])
     else:
-        os.system("cd " + path + " && . /opt/intel/oneapi/setvars.sh && /home/wyatt/Downloads/elk/elk-8.8.26/src/elk")
+        os.system("cd " + config["MatLoc"] + " && . /opt/intel/oneapi/setvars.sh && /home/wyatt/elk-8.8.26/src/elk")
 
     return 0
 
@@ -299,34 +311,37 @@ def from_config(config):
     # get the material data, from materials proj or cif
     mat = 0
     if config["MatType"] == "MP":
-        mat = get_mp_mat(config["MatLoc"])
+        mat = get_mp_mat(config["MatID"])
     elif config["MatType"] == "cif":
-        if not os.path.exists(config["MatLoc"]):
-            warn("specified cif does not exist")
+        if not "CIF" in config.keys():
+            warn("CIF not in config file")
             return -1
-        mat = pymatgen.core.structure.Structure.from_file(config["MatLoc"])
+        if not os.path.exists(config["CIF"]):
+            warn("specified cif, " + config["CIF"] + ", does not exist")
+            return -1
+        mat = pymatgen.core.structure.Structure.from_file(config["CIF"])
     else:
         warn("MatType not properly specified")
         return -1
     # create the data directory
 
-    if os.path.isdir("data/" + config["MatID"]):
+    if os.path.isdir(config["MatLoc"]):
         if not config["overwrite"]:
             subprocess.run(
-                ["zip", "-r", "data/old/" + config["MatID"] + ".zip", "data/" + config["MatID"]])
-        shutil.rmtree("data/" + config["MatID"])
-    os.mkdir("data/" + config["MatID"])
+                ["zip", "-r", "data/old/" + config["MatLoc"] + ".zip", config["MatLoc"]])
+        shutil.rmtree(config["MatLoc"])
+    os.mkdir(config["MatLoc"])
     if save_cfg:
-        with open("data/" + config["MatID"] + '/' + config["MatID"] + '_config.json', 'w') as f:
+        with open(config["MatLoc"] + config["MatID"] + '_config.json', 'w') as f:
             json.dump(config, f)
 
     # ELK functions
     if "GS" in config["tasks"]:
-        gen_spacegroupin("data/" + config["MatID"] + "/", mat)
-        gen_elk_in("data/" + config["MatID"] + "/", mat, config)
-        match run_elk("data/" + config["MatID"] + "/", config):
+        if config["SGU"]: gen_spacegroupin(config["MatLoc"], mat)
+        gen_elk_in(config["MatLoc"], mat, config)
+        match run_elk(config):
             case 0:
-                print("Elk run success")
+                1+1
             case -1:
                 print("Elk monitoring timeout")
                 return -1
@@ -337,27 +352,55 @@ def from_config(config):
     return 0
 
 
-def download_remote(matid: str):
-    subprocess.run(
-        ["scp", "-r", "wbunsti1@login.rockfish.jhu.edu:/home/wbunsti1/elk/elk-8.8.26/BSPOperDir/" + matid + "/*",
-         "data/"+matid])
-    return os.path.exists("data/"+matid+"/BAND.OUT")
+def download_remote(loc: str, all=False):
+    """
+    This simply downloads a materials documents from remote.
+    :param loc: The material location for which to download
+    :return: if download was successful
+    """
+    if all:
+        subprocess.run(
+            ["scp", "-r", "wbunsti1@login.rockfish.jhu.edu:/home/wbunsti1/elk/elk-8.8.26/BSPOperDir/" + loc + "*", loc])
+    else:
+        subprocess.run(
+            ["scp", "-r", "wbunsti1@login.rockfish.jhu.edu:/home/wbunsti1/elk/elk-8.8.26/BSPOperDir/" + loc + "INFO.OUT",
+             loc])
+        subprocess.run(
+            ["scp", "-r", "wbunsti1@login.rockfish.jhu.edu:/home/wbunsti1/elk/elk-8.8.26/BSPOperDir/" + loc + "BAND*",
+             loc])
+        subprocess.run(
+            ["scp", "-r", "wbunsti1@login.rockfish.jhu.edu:/home/wbunsti1/elk/elk-8.8.26/BSPOperDir/" + loc + "PDOS*",
+             loc])
+        subprocess.run(
+            ["scp", "-r", "wbunsti1@login.rockfish.jhu.edu:/home/wbunsti1/elk/elk-8.8.26/BSPOperDir/" + loc + "TDOS*",
+             loc])
+        subprocess.run(
+            ["scp", "-r", "wbunsti1@login.rockfish.jhu.edu:/home/wbunsti1/elk/elk-8.8.26/BSPOperDir/" + loc + "elk.log",
+             loc])
+
+    return os.path.exists(loc + "BANDLINES.OUT")
 
 
 def main():
-    run = False
-    elements = ["Ni", "Cr"]
+    pause = True
+    run = True
+    elements = ["Cu", "Rh"]
     if run:
         cfgs = Utils.MPSearch.get_configs(elements)
         if os.path.exists("running_configs"+str(elements)+".txt"):
             warn("running_configs"+str(elements)+".txt exists already, make sure to download and delete file")
             return 0
         running = open("running_configs"+str(elements)+".txt", "w+")
+        if not os.path.exists("completed_runs.txt"):
+            tmp = open("completed_runs.txt", "w")
+            tmp.close()
         completed = open("completed_runs.txt", "r")
         comp_lines = list(completed.readlines())
         completed.close()
         for config in cfgs:
             if config["MatID"] not in comp_lines:
+                if pause:
+                    time.sleep(30)
                 running.write(config["MatID"]+"\n")
                 from_config(config)
         running.close()
@@ -365,8 +408,12 @@ def main():
         completed = open("completed_runs.txt", "a")
         downloads = open("running_configs" + str(elements) + ".txt", "r")
         for line in downloads.readlines():
-            if download_remote(line[:-1]):
-                completed.write(line+"\n")
+            if pause:
+                time.sleep(30)
+            if download_remote("data/TIProj/"+line[:-1]+"/"):
+                completed.write(line)
+            else:
+                print(line[:-1]+" failed to download")
         completed.close()
         downloads.close()
 

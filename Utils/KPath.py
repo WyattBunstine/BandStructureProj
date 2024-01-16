@@ -4,9 +4,12 @@ from pymatgen.symmetry.kpath import *
 
 
 def get_kpoints_SC(structure: pymatgen.core.structure.Structure):
-    kpoints = KPathSetyawanCurtarolo(structure.get_primitive_structure()).kpath
+    kpoints = KPathSetyawanCurtarolo(structure).kpath
     points = []
-    for point in kpoints['path'][0]:
+    full_path = []
+    for path in kpoints["path"]:
+        full_path = full_path + path
+    for point in full_path:
         points.append([point, list(kpoints['kpoints'][point])])
     return points
 
@@ -26,7 +29,8 @@ def get_kpoints_McQueen(structure):
         else:
             warn(f"Unexpected value for {spg_symbol=}")
     else:
-        warn("non-cubic lattice type not implemented")
+        warn("non-cubic lattice type not implemented, using SC")
+        return get_kpoints_SC(structure)
 
     kpoints = KPathSetyawanCurtarolo(structure).kpath
     points = []

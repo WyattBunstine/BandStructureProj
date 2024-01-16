@@ -1,6 +1,6 @@
 #!/bin/bash -l
-#SBATCH --job-name=elk-test
-#SBATCH --time=12:00:00
+#SBATCH --job-name=elk
+#SBATCH --time=72:00:00
 # Can use either shared or parallel queue since we use a whole node
 #SBATCH --ntasks-per-node=48
 #SBATCH --nodes=2
@@ -15,4 +15,4 @@ export OMP_NESTED=false
 export OMP_DYNAMIC=false
 export OMP_STACKSIZE=1G
 ulimit -Ss unlimited
-../../src/elk >& elk.log
+/home/wbunsti1/elk/elk-8.8.26/src/elk >& elk.log

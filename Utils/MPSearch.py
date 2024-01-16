@@ -26,42 +26,47 @@ def get_dftu_information(mat: Structure):
     species = []
     for el in mat.sites:
         for element in el.species:
-            if element not in species and element.is_transition_metal:
+            if element not in species:
                 species.append(element)
-                partial_orbitals = []
-                for orbital in element.full_electronic_structure:
-                    if orbital[1] == "s" and orbital[2] < 2:
-                        partial_orbitals.append(orbital[0] - 1)
-                    elif orbital[1] == "p" and orbital[2] < 6:
-                        partial_orbitals.append(orbital[0] - 1)
-                    elif orbital[1] == "d" and orbital[2] < 10:
-                        partial_orbitals.append(orbital[0] - 1)
-                    elif orbital[1] == "f" and orbital[2] < 14:
-                        partial_orbitals.append(orbital[0] - 1)
-                for partial_orbital in partial_orbitals:
-                    a = (element.ionization_energy - element.electron_affinity)/HtoEv
-                    dftu_string += ("  " + str(len(species)) + " " + str(partial_orbital) + " "
-                                    + f'{a:.10f}' + "\n")
+    i = 0
+    for specie in sorted(species):
+        i += 1
+        if specie.is_transition_metal:
+            partial_orbitals = []
+            for orbital in specie.full_electronic_structure:
+                if orbital[1] == "s" and orbital[2] < 2:
+                    partial_orbitals.append(0)
+                elif orbital[1] == "p" and orbital[2] < 6:
+                    partial_orbitals.append(1)
+                elif orbital[1] == "d" and orbital[2] < 10:
+                    partial_orbitals.append(2)
+                elif orbital[1] == "f" and orbital[2] < 14:
+                    partial_orbitals.append(3)
+            for partial_orbital in partial_orbitals:
+                a = (specie.ionization_energy - specie.electron_affinity)/HtoEv
+                dftu_string += ("  " + str(i) + " " + str(partial_orbital) + " "
+                                + f'{a:.10f}' + "\n")
     return dftu_string
 
 
 def gen_cfg(matid, mat):
     return {
         "MatType": "MP",
-        "MatLoc": matid + "/",
+        "MatLoc": "data/TIProj/" + matid + "/",
         "MatID": matid,
-        "tasks": ["GS", "BS", "BSPandDOSP"],
+        "tasks": ["GS", "BS", "DOS"],
         "kpoints": "MP",
-        "overwrite": False,
+        "overwrite": True,
         "elkparams": {
             "primcell": ".true.",
-            "vhighq": ".true.",
+            "vhighq": ".false.",
+            "highq": ".false.",
             "trimvg": ".true.",
-            "maxscl": 200,
+            "maxscl": 100,
             "mixtype": 1,
             "xctype": 22,
             "isgkmax": -1,
-            "ngridk": "5 5 5",
+            "ngridk": "4 4 4",
             "bfieldc": "0.0 0.0 -0.01",
             "batch": ".true.",
             "spinorb": ".true.",
@@ -71,8 +76,9 @@ def gen_cfg(matid, mat):
             "swidth": 0.0001,
             "dft+u": "1 5\n" + get_dftu_information(mat)
         },
+        "SGU": False,
         "ROUNDING": 4,
-        "numBandPoints": 400,
+        "numBandPoints": 1000,
         "remote": True,
         "monitor": False
     }
