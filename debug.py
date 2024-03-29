@@ -8,6 +8,7 @@ from pymatgen.symmetry.kpath import *
 import numpy as np
 import subprocess
 import os
+import math
 import itertools
 import plot
 import main
@@ -22,35 +23,99 @@ BtoA = 0.52917721090
 mpid = "mp-22262"
 API_KEY = "cZPQqY0nH2aOGBqCGBfbibyF00XJZXWh"
 
+colors = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd', '#8c564b', '#e377c2', '#7f7f7f', '#bcbd22',
+          '#17becf']
 
-def plot2d(WFFile, axislabels):
+
+# Function to find distance
+def shortest_distance(point, plane):
+    (a, b, c) = np.cross(plane[0], plane[1])
+    d = abs((a * point[0] + b * point[1] + c * point[2]))
+    e = (math.sqrt(a * a + b * b + c * c))
+    return d / e
+
+
+def plot2d(WFFile, axislabels, mat: pymatgen.core.structure.Structure, plane):
+    atoms = {}
+    lat = mat.lattice.matrix
+    vert = [(lat[0] - lat[1]) / (np.sqrt(np.sum((lat[0] + lat[1]) ** 2))),
+            (lat[0] + lat[1]) / (np.sqrt(np.sum((lat[0] + lat[1]) ** 2))),
+            np.cross(lat[0], lat[1]) / np.sqrt(np.sum(np.cross(lat[0], lat[1]) ** 2))]
+    for site in mat.sites:
+        coords = site.coords
+
+        color = 0
+        if site.specie.symbol not in atoms.keys():
+            atoms[site.specie.symbol] = []
+        if shortest_distance(mat.lattice.get_fractional_coords(coords), plane) < 0.1:
+            for i in np.arange(4):
+                coords = site.coords
+                if i == 0:
+                    coords = np.dot(vert, coords)
+                if i == 1:
+                    coords = np.dot(vert, coords + lat[0] + lat[1])
+                if i == 2:
+                    coords = np.dot(vert, coords + lat[2])
+                if i == 3:
+                    coords = np.dot(vert, coords + lat[0] + lat[1] + lat[2])
+
+                atoms[site.specie.symbol].append(list(coords) + [color])
+
     frame = pd.read_csv(WFFile, header=None, delim_whitespace=True)
     xvals_orig = np.array(frame.loc[:, 0]) * BtoA
     yvals_orig = np.array(frame.loc[:, 1]) * BtoA
 
     xoffsets = []
+    x_shift = []
     for i in range(len(yvals_orig)):
         if yvals_orig[i] == np.max(yvals_orig):
             xoffsets.append(xvals_orig[i])
+        if yvals_orig[i] == np.min(yvals_orig):
+            x_shift.append(xvals_orig[i])
     xoff = np.min(xoffsets)
-    # do length
-    xvals = np.concatenate((xvals_orig, xvals_orig + np.max(xvals_orig), xvals_orig + 2 * np.max(xvals_orig)))
-    yvals = np.concatenate((yvals_orig, yvals_orig, yvals_orig))
-    # do height
-    xvals = np.concatenate((xvals, xvals - xoff))
-    yvals = np.concatenate((yvals, yvals + np.max(yvals)))
+    x_shift = np.max(x_shift) + x_shift[1] - x_shift[0]
 
-    evals = np.array(frame.loc[:, 2]) + 0.00
-    evals = np.concatenate((evals, evals, evals, evals, evals, evals))
+    y_shift = np.max(yvals_orig)
+    for i in range(len(yvals_orig)):
+        if yvals_orig[i] < y_shift and yvals_orig[i] != np.min(yvals_orig):
+            y_shift = yvals_orig[i]
+    y_shift = np.max(yvals_orig) + y_shift
+    # do length
+    xvals = np.concatenate((xvals_orig, xvals_orig + x_shift))
+    yvals = np.concatenate((yvals_orig, yvals_orig))
+    # do height
+    xvals = np.concatenate((xvals, xvals + xoff))
+    yvals = np.concatenate((yvals, yvals + y_shift))
+
+    evals = np.round(np.array(frame.loc[:, 2]),10)
+    evals = np.concatenate((evals, evals, evals, evals))
     plt.xlim([np.min(xvals), np.max(xvals)])
     plt.ylim([np.min(yvals), np.max(yvals)])
-    plt.scatter(xvals, yvals, c=np.log(evals), cmap='autumn')
+    # plt.scatter(xvals, yvals, c=np.log(evals), cmap='autumn', s=0.1)
+    plt.scatter(xvals, yvals, c=np.log(evals), cmap='autumn', s=0.1)
+
     plt.xlabel(axislabels[0])
     plt.ylabel(axislabels[1])
     plt.colorbar(label=axislabels[2], pad=0, aspect=20, shrink=0.75)
+    i = 2
+    for atom in atoms.keys():
+        points = np.array(atoms[atom])
+        plt.scatter(points[:, 1], points[:, 2], color=colors[i], label=atom, alpha=1.0, s=20)
+        i += 1
+    plt.legend()
     plt.gca().set_aspect(1.0)
     plt.show()
 
+
+config = "data/TI_EX_Proj/Bi2Se3_orig.json"
+with open(config) as f:
+    config = json.load(f)
+mat = pymatgen.core.structure.Structure.from_file(config["CIF"])
+plane = [[1.0, 1.0, 1.0], [1.0, 1.0, 0.0]]
+plot2d(config["MatLoc"] + "WF2D.OUT",
+       ["(a+b) axis (" + "$\\AA$)", "z axis (" + "$\\AA$)", r"$log(|\psi_{ik}(r)|^2)$"], mat, plane)
+
+1 / 0
 
 # with MPRester(API_KEY) as mpr:
 #     mat = mpr.get_structure_by_material_id(mpid)
@@ -75,18 +140,18 @@ def plot2d(WFFile, axislabels):
 # c2 = complex('1+1j')
 # print(c1/c2)
 
-#plot2d("data/mp-22924/WFAB123.OUT", ["a axis (" + "$\\AA$)", "b axis (" + "$\\AA$)", r"$log(|\psi_{ik}(r)|^2)$"])
+# plot2d("data/mp-22924/WFAB123.OUT", ["a axis (" + "$\\AA$)", "b axis (" + "$\\AA$)", r"$log(|\psi_{ik}(r)|^2)$"])
 
-#1/0
+# 1/0
 
 config = "data/mp-22924_config.json"
 with open(config) as f:
     config = json.load(f)
 with MPRester(API_KEY) as mpr: mat = mpr.get_structure_by_material_id(config["MatID"])
-#fermi_states = orbitalAnalysis.find_fermi_states(config)
-#for state in fermi_states.keys():
+# fermi_states = orbitalAnalysis.find_fermi_states(config)
+# for state in fermi_states.keys():
 #    print(str(state) + ": " + str(fermi_states[state]))
-#orbitalAnalysis.find_band_crossings(config, mat)
+# orbitalAnalysis.find_band_crossings(config, mat)
 
 points = []
 lat = mat.lattice.matrix
@@ -112,13 +177,17 @@ ax.scatter(points[:, 0], points[:, 1], points[:, 2], c=points[:, 3], alpha=1.0, 
 
 frame = pd.read_csv("data/mp-22924/WF3D.OUT", header=None, delim_whitespace=True)
 frame = frame.loc[
-    ((frame[3] > 0.5 * np.average(np.array(frame.loc[:, 3]))) & (frame[3] < 100 * np.average(np.array(frame.loc[:, 3]))))]
+    ((frame[3] > 0.5 * np.average(np.array(frame.loc[:, 3]))) & (
+            frame[3] < 100 * np.average(np.array(frame.loc[:, 3]))))]
 xvals = np.array(frame.loc[:, 0]) * BtoA
 yvals = np.array(frame.loc[:, 1]) * BtoA
 zvals = np.array(frame.loc[:, 2]) * BtoA
-xvals = np.concatenate((xvals, xvals+lat[2][0], xvals+lat[1][0], xvals+lat[0][0], xvals+lat[0][0]+lat[1][0], xvals+lat[0][0]+lat[2][0], xvals+lat[1][0]+lat[2][0]))
-yvals = np.concatenate((yvals, yvals+lat[2][1], yvals+lat[1][1], yvals+lat[0][1], yvals+lat[0][1]+lat[1][1], yvals+lat[0][1]+lat[2][1], yvals+lat[1][1]+lat[2][1]))
-zvals = np.concatenate((zvals, zvals+lat[2][2], zvals+lat[1][2], zvals+lat[0][2], zvals+lat[0][2]+lat[1][2], zvals+lat[0][2]+lat[2][2], zvals+lat[1][2]+lat[2][2]))
+xvals = np.concatenate((xvals, xvals + lat[2][0], xvals + lat[1][0], xvals + lat[0][0], xvals + lat[0][0] + lat[1][0],
+                        xvals + lat[0][0] + lat[2][0], xvals + lat[1][0] + lat[2][0]))
+yvals = np.concatenate((yvals, yvals + lat[2][1], yvals + lat[1][1], yvals + lat[0][1], yvals + lat[0][1] + lat[1][1],
+                        yvals + lat[0][1] + lat[2][1], yvals + lat[1][1] + lat[2][1]))
+zvals = np.concatenate((zvals, zvals + lat[2][2], zvals + lat[1][2], zvals + lat[0][2], zvals + lat[0][2] + lat[1][2],
+                        zvals + lat[0][2] + lat[2][2], zvals + lat[1][2] + lat[2][2]))
 
 evals = np.array(frame.loc[:, 3])
 evals = np.concatenate((evals, evals, evals, evals, evals, evals, evals))
@@ -177,7 +246,7 @@ char_vals = pd.DataFrame(columns=["atom"] + col_names[2:])
 while more_species:
     sites = 1
     more_sites = True
-    band_file = "data/Other/Ta2Cl4O2/BAND_S"
+    band_file = "data/Other/Ta2Cl4O2_dimer/BAND_S"
     if species < 10:
         band_file += "0" + str(species)
     else:
@@ -231,6 +300,7 @@ for index, row in vhkl.iterrows():
 
 df = pd.read_csv("data/mp-1070761/mp-1070761_lowq/GWFS1.txt", header=None)
 df = df.iloc[:, :-1]
+print(df.shape)
 
 parity = []
 bands = [77, 78, 79, 80]
@@ -250,7 +320,7 @@ for band in bands:
     if len(vals) == 0:
         parity.append(0)
     else:
-        parity.append(np.average(vals))
+        parity.append(np.round(np.average(vals),3))
 print(parity)
 
 1 / 0

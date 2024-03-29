@@ -26,21 +26,22 @@ def get_dftu_information(mat: Structure):
     species = []
     for el in mat.sites:
         for element in el.species:
-            if element not in species:
-                species.append(element)
+            if str(element.symbol) not in species:
+                species.append(str(element.symbol))
     i = 0
     for specie in sorted(species):
+        specie = Element(specie)
         i += 1
-        if specie.is_transition_metal:
+        if specie.is_transition_metal or specie.is_lanthanoid or specie.is_actinoid:
             partial_orbitals = []
             for orbital in specie.full_electronic_structure:
                 if orbital[1] == "s" and orbital[2] < 2:
                     partial_orbitals.append(0)
-                elif orbital[1] == "p" and orbital[2] < 6:
+                if orbital[1] == "p" and orbital[2] < 6:
                     partial_orbitals.append(1)
-                elif orbital[1] == "d" and orbital[2] < 10:
+                if orbital[1] == "d" and orbital[2] < 10:
                     partial_orbitals.append(2)
-                elif orbital[1] == "f" and orbital[2] < 14:
+                if orbital[1] == "f" and orbital[2] < 14:
                     partial_orbitals.append(3)
             for partial_orbital in partial_orbitals:
                 a = (specie.ionization_energy - specie.electron_affinity)/HtoEv
@@ -71,7 +72,7 @@ def gen_cfg(matid, mat):
             "batch": ".true.",
             "spinorb": ".true.",
             "spinpol": ".true.",
-            "nempty": 10,
+            "nempty": 3,
             "stype": 3,
             "swidth": 0.0001,
             "dft+u": "1 5\n" + get_dftu_information(mat)
@@ -80,7 +81,11 @@ def gen_cfg(matid, mat):
         "ROUNDING": 4,
         "numBandPoints": 1000,
         "remote": True,
-        "monitor": False
+        "monitor": False,
+        "slurmparams": {
+            "job-name": 0,
+            "time": "12:00:00"
+        }
     }
 
 

@@ -1,6 +1,6 @@
 #!/bin/bash -l
 #SBATCH --job-name=elk
-#SBATCH --time=72:00:00
+#SBATCH --time=12:00:00
 #SBATCH --ntasks-per-node=48
 #SBATCH --nodes=2
 #SBATCH --mail-type=begin

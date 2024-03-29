@@ -109,6 +109,10 @@ def gen_elk_in(path, mat: pymatgen.core.structure.Structure, config):
     if "BS" in config["tasks"]: file.write("  20\n")
     if "OBS" in config["tasks"]: file.write("  22\n")
     if "SBS" in config["tasks"]: file.write("  23\n")
+    if "WANNIER" in config["tasks"]: file.write("  550\n")
+    for task in config["tasks"]:
+        if type(task) == int:
+            file.write("  "+str(task)+"\n")
     file.write("\n")
 
     # if band structure is to be generated, add plotting parameters and add k points
@@ -156,10 +160,16 @@ def gen_elk_in(path, mat: pymatgen.core.structure.Structure, config):
         species = {}
         for site in struct.sites:
             for specie in site.species:
-                if str(specie) in species.keys():
-                    species[str(specie)].append(struct.lattice.get_fractional_coords(site.coords))
-                else:
-                    species[str(specie)] = [struct.lattice.get_fractional_coords(site.coords)]
+                try:
+                    if str(specie.element) in species.keys():
+                        species[str(specie.element)].append(struct.lattice.get_fractional_coords(site.coords))
+                    else:
+                        species[str(specie.element)] = [struct.lattice.get_fractional_coords(site.coords)]
+                except AttributeError:
+                    if str(specie) in species.keys():
+                        species[str(specie)].append(struct.lattice.get_fractional_coords(site.coords))
+                    else:
+                        species[str(specie)] = [struct.lattice.get_fractional_coords(site.coords)]
         # print positions to elk.in file
         file.write("\natoms\n")
         file.write("  " + str(len(species.keys()))+"\n")
@@ -175,6 +185,30 @@ def gen_elk_in(path, mat: pymatgen.core.structure.Structure, config):
     file.close()
     return 0
 
+
+def gen_slurm(mat: pymatgen.core.structure.Structure, config):
+    if config["slurmparams"]["job-name"] == 0:
+        config["slurmparams"]["job-name"] = mat.formula
+    prefix = ("#!/bin/bash -l\n#SBATCH --job-name=" + str(config["MatID"]).replace(" ", "")
+              + "\n#SBATCH --time="+config["slurmparams"]["time"]+"\n")
+    suffix = '''#SBATCH --ntasks-per-node=48
+#SBATCH --nodes=2
+#SBATCH --mail-type=begin
+#SBATCH --mail-type=end
+#SBATCH --mail-type=fail
+#SBATCH --mail-user=wbunsti1@jhu.edu
+# MARCC defaults to gcc, must load intel module
+module load intel/2022.2
+cd "$SLURM_SUBMIT_DIR"
+export OMP_NUM_THREADS=8
+export OMP_DYNAMIC=false
+export OMP_STACKSIZE=1G
+ulimit -Ss unlimited
+mpirun /home/wbunsti1/elk/elk-8.8.26/src/elk >& elk.log\n'''
+
+    file = open(config["MatLoc"] + "elk.slurm", 'w+')
+    file.write(prefix+suffix)
+    file.close()
 
 def run_elk(config):
     """Function that actually runs elk, can run remotely on rockfish or locally
@@ -207,7 +241,7 @@ def run_elk(config):
         subprocess.run(["scp", config["MatLoc"] + "elk.in",
                         "wbunsti1@login.rockfish.jhu.edu:/home/wbunsti1/elk/elk-8.8.26/BSPOperDir/" + config["MatLoc"]
                         + "elk.in"])
-        subprocess.run(["scp", "elk.slurm",
+        subprocess.run(["scp", config["MatLoc"] + "elk.slurm",
                         "wbunsti1@login.rockfish.jhu.edu:/home/wbunsti1/elk/elk-8.8.26/BSPOperDir/" + config[
                             "MatLoc"] + "elk.slurm"])
         # run the process
@@ -283,7 +317,7 @@ def run_elk(config):
             print("ELK finished. Coping remote files")
             download_remote(config["MatLoc"])
     else:
-        os.system("cd " + config["MatLoc"] + " && . /opt/intel/oneapi/setvars.sh && /home/wyatt/elk-8.8.26/src/elk")
+        os.system("cd " + config["MatLoc"] + " && . /opt/intel/oneapi/setvars.sh && mpirun /home/wyatt/elk-8.8.26/elk.sh")
 
     return 0
 
@@ -336,18 +370,19 @@ def from_config(config):
             json.dump(config, f)
 
     # ELK functions
-    if "GS" in config["tasks"]:
-        if config["SGU"]: gen_spacegroupin(config["MatLoc"], mat)
-        gen_elk_in(config["MatLoc"], mat, config)
-        match run_elk(config):
-            case 0:
-                1+1
-            case -1:
-                print("Elk monitoring timeout")
-                return -1
-            case _:
-                print("Unknown return from elk run")
-                return -1
+    if config["SGU"]: gen_spacegroupin(config["MatLoc"], mat)
+    gen_elk_in(config["MatLoc"], mat, config)
+    if config["remote"]:
+        gen_slurm(mat, config)
+    match run_elk(config):
+        case 0:
+            1+1
+        case -1:
+            print("Elk monitoring timeout")
+            return -1
+        case _:
+            print("Unknown return from elk run")
+            return -1
 
     return 0
 
@@ -382,9 +417,9 @@ def download_remote(loc: str, all=False):
 
 
 def main():
-    pause = True
-    run = True
-    elements = ["Cu", "Rh"]
+    pause = False
+    run = False
+    elements = ["Ni", "Cd"]
     if run:
         cfgs = Utils.MPSearch.get_configs(elements)
         if os.path.exists("running_configs"+str(elements)+".txt"):
