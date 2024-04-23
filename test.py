@@ -20,24 +20,40 @@ API_KEY = "cZPQqY0nH2aOGBqCGBfbibyF00XJZXWh"
 #     mat = mpr.get_structure_by_material_id(mpid)
 # config = Utils.MPSearch.gen_cfg(mpid, mat)
 config = "data/TI_EX_Proj/Bi2Se3_orig.json"
-config = "data/KLnCuSeProj/K2Dy4Cu6Se9.json"
+config = "data/KLnCuSeProj/K2Ho4Cu6Se9_n=1.json"
+# config = "data/Other/Na2CoSe2O_mag.json"
 with open(config) as f:
     config = json.load(f)
-main.from_config(config)
+# main.from_config(config)
 # main.download_remote(config["MatLoc"], all=True)
 # with MPRester(API_KEY) as mpr: mat = mpr.get_structure_by_material_id(config["MatID"])
 # main.run_elk(config)
-mat = pymatgen.core.structure.Structure.from_file(config["CIF"])
+#mat = pymatgen.core.structure.Structure.from_file(config["CIF"])
 # print(Utils.MPSearch.get_dftu_information(mat))
 # main.gen_slurm(mat,config)
 # print(Utils.MPSearch.get_dftu_information(mat))
-plot.plot(config, mat, show=True, spins=False, options=["OADOS", "OBS"], energy_range=(-2, 2), dos_range=None,
-          el_orbs={"Cu": ["d_{xy}", "d_{xz}", "d_{z^2}","d_{yz}","d_{x^2-y^2}"], "Bi": ["s", "p_x", "p_y", "p_z"],
-                   "Se": ["s", "p_x", "p_y", "p_z"], "Ta": ["d", "p_x", "p_y", "p_z"], "O": ["s","p", "p_x", "p_y", "p_z"],
-                   "Cl": ["s","p", "p_x", "p_y", "p_z"]}, titles=False, num_points=1000)
+#plot.plot(config, mat, show=True, spins=False, options=["EDOS", "BS"], energy_range=(-2, 2), dos_range=None,
+#          el_orbs={"Co": ["d_{xy}", "d_{xz}", "d_{z^2}","d_{yz}","d_{x^2-y^2}"],
+#                   "Se": ["p_x", "p_y", "p_z"], "O": ["p", "p_x", "p_y", "p_z"],}, titles=False, num_points=1000)
+
+config_files = ["data/KLnCuSeProj/K2Ho4Cu6Se9_n=1.json",
+                "data/KLnCuSeProj/K2Ho4Cu6Se9.json", "data/KLnCuSeProj/K2Ho4Cu6Se9_n=3.json"]
+configs = []
+mats = []
+for file in config_files:
+    with open(file) as f:
+        configs.append(json.load(f))
+for config in configs:
+    mats.append(pymatgen.core.structure.Structure.from_file(config["CIF"]))
+
+plot.tri_plot(configs,mats, show=True, spins=False, options=["EDOS", "BS"], energy_range=(-2, 2), dos_range=None)
+
+#          el_orbs={"Co": ["d_{xy}", "d_{xz}", "d_{z^2}","d_{yz}","d_{x^2-y^2}"],
+#                   "Se": ["p_x", "p_y", "p_z"], "O": ["p", "p_x", "p_y", "p_z"],}, titles=False, num_points=1000)
 #          el_orbs={"Sm": ["f1", "f2", "f3", "f4", "f5", "f6", "f7"], "Fe": ["d_{x^2-y^2}"], "Cu": ["d_{x^2-y^2}"],
 #                   "Ba": [], "O": ["p_x", "p_y", "p_z"]}, sites={"Ni": [1, 2, 3, 4]})
-#          el_orbs={"Sm":["f1","f2","f3","f4","f5","f6","f7"],"Fe":["d_{xy}", "d_{xz}", "d_{yz}", "d_{z^2}", "d_{x^2-y^2}","p_x","p_y","p_z"]}, sites={"Ni": [1, 2, 3, 4]})
+#          el_orbs={"Sm":["f1","f2","f3","f4","f5","f6","f7"],"Fe":["d_{xy}", "d_{xz}", "d_{yz}", "d_{z^2}",
+#          "d_{x^2-y^2}","p_x","p_y","p_z"]}, sites={"Ni": [1, 2, 3, 4]})
 #           el_orbs={"Sm":["f"],"Fe":["d"],"Cu":["d"],"Ba":[],"O":["p","s"]}, sites={"Ni": [1, 2, 3, 4]})
 # main.download_remote("data/TIProj/mp-22472/", all=True)
 # "d_{xy}", "d_{xz}", "d_{yz}", "d_{z^2}", "d_{x^2-y^2}"

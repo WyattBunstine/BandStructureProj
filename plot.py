@@ -140,20 +140,31 @@ def plot_orbital_bands(config, mat: pymatgen.core.structure.Structure, axis, el_
                                              "d_{z^2}", "d_{xz}", "d_{x^2-y^2}", "f1", "f2", "f3", "f4", "f5",
                                              "f6", "f7", "orb_max"])
             for index, row in bands.iterrows():
-                new_vals.loc[len(new_vals.index)] = [row["vec"], row["energy"]] + list(band_vals[index]) + [
-                    np.argmax(band_vals[index])]
+                if np.max(band_vals[index] > 0.1):
+                    new_vals.loc[len(new_vals.index)] = [row["vec"], row["energy"]] + list(band_vals[index]) + [
+                        np.argmax(band_vals[index])]
+                new_vals.loc[len(new_vals.index)] = [row["vec"], row["energy"]] + list(band_vals[index]) + [16]
             for i in np.arange(16):
                 if orbitals[i] in el_orbs[atoms[species - 1]]:
                     orb_bands = new_vals.loc[(new_vals["orb_max"] == i)]
                     xvals = np.array(list(orb_bands['vec']))
-                    xvals += species*0.001
+                    xvals += species*0.005
                     yvals = np.array(list(orb_bands['energy'])) * 27.2138
                     axis.scatter(xvals, yvals, s=1, label=atoms[species - 1] + "$" + orbitals[i] + "$",
-                                 c=colors[used_colors%10], zorder=10)
+                                 c=colors[used_colors%10], zorder=10+species)
                     used_colors += 1
+                elif False:
+                    orb_bands = new_vals.loc[(new_vals["orb_max"] == i)]
+                    xvals = np.array(list(orb_bands['vec']))
+                    xvals += species * 0.001
+                    yvals = np.array(list(orb_bands['energy'])) * 27.2138
+                    axis.scatter(xvals, yvals, s=1, label=atoms[species - 1] + "$" + orbitals[i] + "$",
+                                 c="black", zorder=11)
             species += 1
-        else:
+        elif not os.path.exists(band_file + "_A0001.OUT"):
             more_species = False
+        else:
+            species += 1
 
     # plot significant points
     sigpoints = pd.read_csv(config["MatLoc"] + "BANDLINES.OUT", header=None, delim_whitespace=True, names=["x", "y"])
@@ -828,15 +839,17 @@ def plot(config, mat: pymatgen.core.structure.Structure, options=None, spins=Fal
         plt.savefig("data/plots/" + mat.formula + "plt.png")
 
 
-'''
-            if i == 76000:
-                axis.plot(xvals, yvals[i:i + 1000], label='parity @ Z = 1', color="blue", linewidth=1.0)
-            elif i == 77000:
-                axis.plot(xvals, yvals[i:i + 1000], label='_nolegned_', color="blue", linewidth=1.0)
-            elif i == 78000:
-                axis.plot(xvals, yvals[i:i + 1000], label='parity @ Z = -1', color="red", linewidth=1.0)
-            elif i == 79000:
-                axis.plot(xvals, yvals[i:i + 1000], label='_nolegned_', color="red", linewidth=1.0)
-            else:
-                axis.plot(xvals, yvals[i:i + 1000], linewidth=1.0, color="black", label='_nolegned_')
-            '''
+
+
+def tri_plot(configs, mats, options=None, spins=False, el_orbs=None, energy_range=(-5, 8),
+         show=False, sites=None, dos_range=None, titles=True, num_points=500):
+    f, axs = plt.subplots(1, 3, sharey=True, figsize=(30, 5), gridspec_kw={'width_ratios': [1, 1, 1]})
+    f.subplots_adjust(wspace=0)
+
+    for i in np.arange(3):
+        plot_bands(configs[i], mats[i], axs[i])
+        axs[i].set_title("")
+    axs[0].set_ylabel("$E-E_f (eV)$")
+    plt.ylim(energy_range)
+    plt.show()
+

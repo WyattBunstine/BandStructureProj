@@ -67,12 +67,12 @@ def gen_cfg(matid, mat):
             "mixtype": 1,
             "xctype": 22,
             "isgkmax": -1,
-            "ngridk": "4 4 4",
+            "ngridk": "5 5 5",
             "bfieldc": "0.0 0.0 -0.01",
             "batch": ".true.",
             "spinorb": ".true.",
             "spinpol": ".true.",
-            "nempty": 3,
+            "nempty": 10,
             "stype": 3,
             "swidth": 0.0001,
             "dft+u": "1 5\n" + get_dftu_information(mat)
@@ -84,7 +84,7 @@ def gen_cfg(matid, mat):
         "monitor": False,
         "slurmparams": {
             "job-name": 0,
-            "time": "12:00:00"
+            "time": "24:00:00"
         }
     }
 

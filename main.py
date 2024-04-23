@@ -192,7 +192,7 @@ def gen_slurm(mat: pymatgen.core.structure.Structure, config):
     prefix = ("#!/bin/bash -l\n#SBATCH --job-name=" + str(config["MatID"]).replace(" ", "")
               + "\n#SBATCH --time="+config["slurmparams"]["time"]+"\n")
     suffix = '''#SBATCH --ntasks-per-node=48
-#SBATCH --nodes=2
+#SBATCH --nodes=1
 #SBATCH --mail-type=begin
 #SBATCH --mail-type=end
 #SBATCH --mail-type=fail
@@ -202,7 +202,7 @@ module load intel/2022.2
 cd "$SLURM_SUBMIT_DIR"
 export OMP_NUM_THREADS=8
 export OMP_DYNAMIC=false
-export OMP_STACKSIZE=1G
+export OMP_STACKSIZE=5G
 ulimit -Ss unlimited
 mpirun /home/wbunsti1/elk/elk-8.8.26/src/elk >& elk.log\n'''
 
@@ -221,32 +221,32 @@ def run_elk(config):
     if config["remote"]:
         # create directory for this DFT run
         out = subprocess.run(
-            ["ssh", "wbunsti1@login.rockfish.jhu.edu", "cd", "elk/elk-8.8.26/BSPOperDir;", "mkdir", config["MatLoc"]+";", "exit"])
+            ["ssh", "wbunsti1@login.rockfish.jhu.edu", "cd", "/data/tmcquee2/wbunsti1/;", "mkdir", config["MatLoc"]+";", "exit"])
         # if the directory exists, clean it
         if not out.returncode == 0:
             # if the old file should be saved
             if not config["overwrite"]:
                 subprocess.run(
-                    ["ssh", "wbunsti1@login.rockfish.jhu.edu", "cd", "elk/elk-8.8.26/BSPOperDir;", "zip", "-r", "old/" +
+                    ["ssh", "wbunsti1@login.rockfish.jhu.edu", "cd", "/data/tmcquee2/wbunsti1/;", "zip", "-r", "old/" +
                      config["MatLoc"] + ".zip", config["MatLoc"]+";","exit"])
             # remove the old folder
             subprocess.run(
-                ["ssh", "wbunsti1@login.rockfish.jhu.edu", "cd", "elk/elk-8.8.26/BSPOperDir;", "rm", "-r",
+                ["ssh", "wbunsti1@login.rockfish.jhu.edu", "cd", "/data/tmcquee2/wbunsti1/;", "rm", "-r",
                  config["MatLoc"] + ";", "rm", "-r", config["MatLoc"] +";","exit"])
             # create a fresh one
             subprocess.run(
-                ["ssh", "wbunsti1@login.rockfish.jhu.edu", "cd", "elk/elk-8.8.26/BSPOperDir;", "mkdir",
+                ["ssh", "wbunsti1@login.rockfish.jhu.edu", "cd", "/data/tmcquee2/wbunsti1/;", "mkdir",
                  config["MatLoc"]+";","exit"])
         # copy elk.in and elk.slurm
         subprocess.run(["scp", config["MatLoc"] + "elk.in",
-                        "wbunsti1@login.rockfish.jhu.edu:/home/wbunsti1/elk/elk-8.8.26/BSPOperDir/" + config["MatLoc"]
+                        "wbunsti1@login.rockfish.jhu.edu:/data/tmcquee2/wbunsti1/" + config["MatLoc"]
                         + "elk.in"])
         subprocess.run(["scp", config["MatLoc"] + "elk.slurm",
-                        "wbunsti1@login.rockfish.jhu.edu:/home/wbunsti1/elk/elk-8.8.26/BSPOperDir/" + config[
+                        "wbunsti1@login.rockfish.jhu.edu:/data/tmcquee2/wbunsti1/" + config[
                             "MatLoc"] + "elk.slurm"])
         # run the process
         subprocess.run(
-            ["ssh", "wbunsti1@login.rockfish.jhu.edu", "cd", "elk/elk-8.8.26/BSPOperDir/" + config["MatLoc"] + ";",
+            ["ssh", "wbunsti1@login.rockfish.jhu.edu", "cd", "/data/tmcquee2/wbunsti1/" + config["MatLoc"] + ";",
              "sbatch elk.slurm; exit"])
         # block to monitor progress
         if config["monitor"]:
@@ -263,7 +263,7 @@ def run_elk(config):
                     os.remove(config["MatLoc"] + "INFO.OUT")
                 # copy INFO.OUT file from remote
                 subprocess.run(
-                    ["scp", "wbunsti1@login.rockfish.jhu.edu:/home/wbunsti1/elk/elk-8.8.26/BSPOperDir/" + config[
+                    ["scp", "wbunsti1@login.rockfish.jhu.edu:/data/tmcquee2/wbunsti1/" + config[
                         "MatLoc"] + "INFO.OUT", config["MatLoc"] + "INFO.OUT"])
                 # if it was copied successfully
                 if os.path.exists(config["MatLoc"] + "INFO.OUT"):
@@ -393,24 +393,26 @@ def download_remote(loc: str, all=False):
     :param loc: The material location for which to download
     :return: if download was successful
     """
+    subprocess.run(
+        ["scp", "-r", "wbunsti1@login.rockfish.jhu.edu:/data/tmcquee2/wbunsti1/" + loc + "*", loc])
+    #["scp", "-r", "wbunsti1@login.rockfish.jhu.edu:/home/wbunsti1/elk/elk-8.8.26/BSPOperDir/" + loc + "*", loc])
     if all:
-        subprocess.run(
-            ["scp", "-r", "wbunsti1@login.rockfish.jhu.edu:/home/wbunsti1/elk/elk-8.8.26/BSPOperDir/" + loc + "*", loc])
+        pass
     else:
         subprocess.run(
-            ["scp", "-r", "wbunsti1@login.rockfish.jhu.edu:/home/wbunsti1/elk/elk-8.8.26/BSPOperDir/" + loc + "INFO.OUT",
+            ["scp", "-r", "wbunsti1@login.rockfish.jhu.edu:/data/tmcquee2/wbunsti1/" + loc + "INFO.OUT",
              loc])
         subprocess.run(
-            ["scp", "-r", "wbunsti1@login.rockfish.jhu.edu:/home/wbunsti1/elk/elk-8.8.26/BSPOperDir/" + loc + "BAND*",
+            ["scp", "-r", "wbunsti1@login.rockfish.jhu.edu:/data/tmcquee2/wbunsti1/" + loc + "BAND*",
              loc])
         subprocess.run(
-            ["scp", "-r", "wbunsti1@login.rockfish.jhu.edu:/home/wbunsti1/elk/elk-8.8.26/BSPOperDir/" + loc + "PDOS*",
+            ["scp", "-r", "wbunsti1@login.rockfish.jhu.edu:/data/tmcquee2/wbunsti1/" + loc + "PDOS*",
              loc])
         subprocess.run(
-            ["scp", "-r", "wbunsti1@login.rockfish.jhu.edu:/home/wbunsti1/elk/elk-8.8.26/BSPOperDir/" + loc + "TDOS*",
+            ["scp", "-r", "wbunsti1@login.rockfish.jhu.edu:/data/tmcquee2/wbunsti1/" + loc + "TDOS*",
              loc])
         subprocess.run(
-            ["scp", "-r", "wbunsti1@login.rockfish.jhu.edu:/home/wbunsti1/elk/elk-8.8.26/BSPOperDir/" + loc + "elk.log",
+            ["scp", "-r", "wbunsti1@login.rockfish.jhu.edu:/data/tmcquee2/wbunsti1/" + loc + "elk.log",
              loc])
 
     return os.path.exists(loc + "BANDLINES.OUT")
