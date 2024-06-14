@@ -13,7 +13,7 @@ def search_mp_element_combos(elements: list[str], num_combos=2, print_mats=False
     for combo in itertools.combinations(elements, num_combos):
         API_KEY = "cZPQqY0nH2aOGBqCGBfbibyF00XJZXWh"
         with MPRester(API_KEY) as mpr:
-            data += mpr.materials.summary.search(elements=list(combo), is_stable=True, all_fields=False,
+            data += mpr.materials.summary.search(elements=list(combo), is_stable=True, all_fields=False, band_gap=[0.0,0.5],
                                                  fields=["composition", "material_id", "structure"])
     if print_mats:
         for mat in data:
@@ -63,7 +63,8 @@ def gen_cfg(matid, mat):
             "vhighq": ".false.",
             "highq": ".false.",
             "trimvg": ".true.",
-            "maxscl": 100,
+            "maxscl": 1000,
+            "nwrite": 10,
             "mixtype": 1,
             "xctype": 22,
             "isgkmax": -1,
@@ -72,7 +73,7 @@ def gen_cfg(matid, mat):
             "batch": ".true.",
             "spinorb": ".true.",
             "spinpol": ".true.",
-            "nempty": 10,
+            "nempty": 5,
             "stype": 3,
             "swidth": 0.0001,
             "dft+u": "1 5\n" + get_dftu_information(mat)
@@ -84,7 +85,7 @@ def gen_cfg(matid, mat):
         "monitor": False,
         "slurmparams": {
             "job-name": 0,
-            "time": "24:00:00"
+            "time": "48:00:00"
         }
     }
 

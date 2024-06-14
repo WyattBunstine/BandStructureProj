@@ -2,6 +2,8 @@ import sys
 import os
 from warnings import *
 import json
+
+import numpy as np
 import pymatgen
 from pymatgen.core import *
 from mp_api.client import MPRester
@@ -15,7 +17,8 @@ from pymatgen.symmetry.analyzer import SpacegroupAnalyzer
 ROUNDING = 4
 numBandPoints = 400
 BtoA = 0.52917721090  # 1 bohr radius is 0.52 angstroms
-HtoEv = 27.2114 # 1 Hartree is 27 Electron volts
+HtoEv = 27.2114  # 1 Hartree is 27 Electron volts
+
 
 def validate_config(config):
     """This function validates the config file used to run elk.
@@ -30,6 +33,14 @@ def validate_config(config):
     # check that each is present, if one is missing, return false
     for rec in recs:
         if rec not in config.keys():
+            warn(rec + " not found in config")
+            return False
+    if "PHONON" in config["tasks"]:
+        if len(config["tasks"]) > 1:
+            warn("Phonon calculations should be performed on their own, additional tasks present")
+            return False
+        if "phonon_workers" not in config.keys():
+            warn("phonon_workers missing for phonon calcuations")
             return False
     # otherwise return true
     return True
@@ -109,14 +120,15 @@ def gen_elk_in(path, mat: pymatgen.core.structure.Structure, config):
     if "BS" in config["tasks"]: file.write("  20\n")
     if "OBS" in config["tasks"]: file.write("  22\n")
     if "SBS" in config["tasks"]: file.write("  23\n")
+    if "PHONON" in config["tasks"]: file.write("  200\n")
     if "WANNIER" in config["tasks"]: file.write("  550\n")
     for task in config["tasks"]:
         if type(task) == int:
-            file.write("  "+str(task)+"\n")
+            file.write("  " + str(task) + "\n")
     file.write("\n")
 
     # if band structure is to be generated, add plotting parameters and add k points
-    if "BS" in config["tasks"] or "OBS" in config["tasks"] or "SBS" in config["tasks"]:
+    if "BS" in config["tasks"] or "OBS" in config["tasks"] or "SBS" in config["tasks"] or "PHONON" in config["tasks"]:
         file.write("plot1d\n")
         # adding k points to plot
         if config["kpoints"] == "MP":
@@ -136,7 +148,6 @@ def gen_elk_in(path, mat: pymatgen.core.structure.Structure, config):
     else:
         file.write("sppath\n  '/home/wyatt/elk-8.8.26/species/'\n\n")
 
-
     # add the crystal geometry from GEOMETRY.OUT file, this only works for some crystals
     if config["SGU"]:
         geometryfile = open(path + "GEOMETRY.OUT", 'r')
@@ -154,7 +165,7 @@ def gen_elk_in(path, mat: pymatgen.core.structure.Structure, config):
             file.write("  ")
             for param in vec:
                 a = round(param / BtoA, 10)
-                file.write(f'{a:.10f}'+"  ")
+                file.write(f'{a:.10f}' + "  ")
             file.write("\n")
         # get the atoms and their positions
         species = {}
@@ -172,14 +183,14 @@ def gen_elk_in(path, mat: pymatgen.core.structure.Structure, config):
                         species[str(specie)] = [struct.lattice.get_fractional_coords(site.coords)]
         # print positions to elk.in file
         file.write("\natoms\n")
-        file.write("  " + str(len(species.keys()))+"\n")
+        file.write("  " + str(len(species.keys())) + "\n")
         for specie in sorted(species.keys()):
-            file.write("'" + specie + ".in'\n  " + str(len(species[specie]))+"\n")
+            file.write("'" + specie + ".in'\n  " + str(len(species[specie])) + "\n")
             for site in species[specie]:
                 file.write("  ")
                 for coord in site:
                     a = round(coord, ROUNDING)
-                    file.write(f'{a:.10f}'+"  ")
+                    file.write(f'{a:.10f}' + "  ")
                 file.write("\n")
 
     file.close()
@@ -190,8 +201,8 @@ def gen_slurm(mat: pymatgen.core.structure.Structure, config):
     if config["slurmparams"]["job-name"] == 0:
         config["slurmparams"]["job-name"] = mat.formula
     prefix = ("#!/bin/bash -l\n#SBATCH --job-name=" + str(config["MatID"]).replace(" ", "")
-              + "\n#SBATCH --time="+config["slurmparams"]["time"]+"\n")
-    suffix = '''#SBATCH --ntasks-per-node=48
+              + "\n#SBATCH --time=" + config["slurmparams"]["time"] + "\n")
+    suffix = '''#SBATCH --ntasks-per-node=2
 #SBATCH --nodes=1
 #SBATCH --mail-type=begin
 #SBATCH --mail-type=end
@@ -202,13 +213,14 @@ module load intel/2022.2
 cd "$SLURM_SUBMIT_DIR"
 export OMP_NUM_THREADS=8
 export OMP_DYNAMIC=false
-export OMP_STACKSIZE=5G
+export OMP_STACKSIZE=15G
 ulimit -Ss unlimited
 mpirun /home/wbunsti1/elk/elk-8.8.26/src/elk >& elk.log\n'''
 
     file = open(config["MatLoc"] + "elk.slurm", 'w+')
-    file.write(prefix+suffix)
+    file.write(prefix + suffix)
     file.close()
+
 
 def run_elk(config):
     """Function that actually runs elk, can run remotely on rockfish or locally
@@ -221,22 +233,23 @@ def run_elk(config):
     if config["remote"]:
         # create directory for this DFT run
         out = subprocess.run(
-            ["ssh", "wbunsti1@login.rockfish.jhu.edu", "cd", "/data/tmcquee2/wbunsti1/;", "mkdir", config["MatLoc"]+";", "exit"])
+            ["ssh", "wbunsti1@login.rockfish.jhu.edu", "cd", "/data/tmcquee2/wbunsti1/;", "mkdir",
+             config["MatLoc"] + ";", "exit"])
         # if the directory exists, clean it
         if not out.returncode == 0:
             # if the old file should be saved
             if not config["overwrite"]:
                 subprocess.run(
                     ["ssh", "wbunsti1@login.rockfish.jhu.edu", "cd", "/data/tmcquee2/wbunsti1/;", "zip", "-r", "old/" +
-                     config["MatLoc"] + ".zip", config["MatLoc"]+";","exit"])
+                     config["MatLoc"] + ".zip", config["MatLoc"] + ";", "exit"])
             # remove the old folder
             subprocess.run(
                 ["ssh", "wbunsti1@login.rockfish.jhu.edu", "cd", "/data/tmcquee2/wbunsti1/;", "rm", "-r",
-                 config["MatLoc"] + ";", "rm", "-r", config["MatLoc"] +";","exit"])
+                 config["MatLoc"] + ";", "rm", "-r", config["MatLoc"] + ";", "exit"])
             # create a fresh one
             subprocess.run(
                 ["ssh", "wbunsti1@login.rockfish.jhu.edu", "cd", "/data/tmcquee2/wbunsti1/;", "mkdir",
-                 config["MatLoc"]+";","exit"])
+                 config["MatLoc"] + ";", "exit"])
         # copy elk.in and elk.slurm
         subprocess.run(["scp", config["MatLoc"] + "elk.in",
                         "wbunsti1@login.rockfish.jhu.edu:/data/tmcquee2/wbunsti1/" + config["MatLoc"]
@@ -317,8 +330,71 @@ def run_elk(config):
             print("ELK finished. Coping remote files")
             download_remote(config["MatLoc"])
     else:
-        os.system("cd " + config["MatLoc"] + " && . /opt/intel/oneapi/setvars.sh && mpirun /home/wyatt/elk-8.8.26/elk.sh")
+        os.system(
+            "cd " + config["MatLoc"] + " && . /opt/intel/oneapi/setvars.sh && mpirun /home/wyatt/elk-8.8.26/elk.sh")
 
+    return 0
+
+
+def run_phonon(mat: pymatgen.core.structure.Structure, config):
+    if config["remote"]:
+        # create directory for this DFT run
+        out = subprocess.run(
+            ["ssh", "wbunsti1@login.rockfish.jhu.edu", "cd", "/data/tmcquee2/wbunsti1/;", "mkdir",
+             config["MatLoc"] + ";", "exit"])
+        # if the directory exists, clean it
+        if not out.returncode == 0:
+            # if the old file should be saved
+            if not config["overwrite"]:
+                subprocess.run(
+                    ["ssh", "wbunsti1@login.rockfish.jhu.edu", "cd", "/data/tmcquee2/wbunsti1/;", "zip", "-r", "old/" +
+                     config["MatLoc"] + ".zip", config["MatLoc"] + ";", "exit"])
+            # remove the old folder
+            subprocess.run(
+                ["ssh", "wbunsti1@login.rockfish.jhu.edu", "cd", "/data/tmcquee2/wbunsti1/;", "rm", "-r",
+                 config["MatLoc"] + ";", "rm", "-r", config["MatLoc"] + ";", "exit"])
+            # create a fresh one
+            subprocess.run(
+                ["ssh", "wbunsti1@login.rockfish.jhu.edu", "cd", "/data/tmcquee2/wbunsti1/;", "mkdir",
+                 config["MatLoc"] + ";", "exit"])
+        # copy elk.in
+        subprocess.run(["scp", config["MatLoc"] + "elk.in",
+                        "wbunsti1@login.rockfish.jhu.edu:/data/tmcquee2/wbunsti1/" + config["MatLoc"]
+                        + "elk.in"])
+
+        for i in range(1, config["phonon_workers"]+1):
+            config["slurmparams"]["job-name"] = (mat.formula.replace(" ", "") + "_phonon_" + str(i) +
+                                                 "/" + str(config["phonon_workers"]))
+
+            prefix = ("#!/bin/bash -l\n#SBATCH --job-name=" + str(config["slurmparams"]["job-name"])
+                      + "\n#SBATCH --time=" + config["slurmparams"]["time"] + "\n")
+
+            middle = ('''#SBATCH --ntasks-per-node=48
+#SBATCH --nodes=1
+#SBATCH --mail-type=begin
+#SBATCH --mail-type=end
+#SBATCH --mail-type=fail
+#SBATCH --mail-user=wbunsti1@jhu.edu
+# MARCC defaults to gcc, must load intel module
+module load intel/2022.2
+cd "$SLURM_SUBMIT_DIR"
+export OMP_NUM_THREADS=48
+export OMP_DYNAMIC=false
+export OMP_STACKSIZE=15G
+ulimit -Ss unlimited\n''')
+            suffix = "mpirun /home/wbunsti1/elk/elk-8.8.26/src/elk >& elk_phonon_" + str(i) + "_of_" + str(config["phonon_workers"]) + ".log\n"
+            file = open(config["MatLoc"] + "elk_phonon_" + str(i) + ".slurm", 'w+')
+            file.write(prefix + middle + suffix)
+            file.close()
+            subprocess.run(["scp", config["MatLoc"] + "elk_phonon_" + str(i) + ".slurm",
+                            "wbunsti1@login.rockfish.jhu.edu:/data/tmcquee2/wbunsti1/" + config[
+                                "MatLoc"] + "elk_phonon_" + str(i) + ".slurm"])
+            subprocess.run(
+                ["ssh", "wbunsti1@login.rockfish.jhu.edu", "cd", "/data/tmcquee2/wbunsti1/" + config["MatLoc"] + ";",
+                 "sbatch elk_phonon_" + str(i) + ".slurm; exit"])
+    else:
+        print("You want to run a phonon calculation remotely")
+        return -1
     return 0
 
 
@@ -373,17 +449,21 @@ def from_config(config):
     if config["SGU"]: gen_spacegroupin(config["MatLoc"], mat)
     gen_elk_in(config["MatLoc"], mat, config)
     if config["remote"]:
-        gen_slurm(mat, config)
-    match run_elk(config):
-        case 0:
-            1+1
-        case -1:
-            print("Elk monitoring timeout")
-            return -1
-        case _:
-            print("Unknown return from elk run")
-            return -1
-
+        if "PHONON" in config["tasks"]:
+            run_phonon(mat, config)
+            return 0
+        else:
+            gen_slurm(mat, config)
+    if not "PHONON" in config["tasks"]:
+        match run_elk(config):
+            case 0:
+                1 + 1
+            case -1:
+                print("Elk monitoring timeout")
+                return -1
+            case _:
+                print("Unknown return from elk run")
+                return -1
     return 0
 
 
@@ -393,11 +473,11 @@ def download_remote(loc: str, all=False):
     :param loc: The material location for which to download
     :return: if download was successful
     """
-    subprocess.run(
-        ["scp", "-r", "wbunsti1@login.rockfish.jhu.edu:/data/tmcquee2/wbunsti1/" + loc + "*", loc])
+
     #["scp", "-r", "wbunsti1@login.rockfish.jhu.edu:/home/wbunsti1/elk/elk-8.8.26/BSPOperDir/" + loc + "*", loc])
     if all:
-        pass
+        subprocess.run(
+            ["scp", "-r", "wbunsti1@login.rockfish.jhu.edu:/data/tmcquee2/wbunsti1/" + loc + "*", loc])
     else:
         subprocess.run(
             ["scp", "-r", "wbunsti1@login.rockfish.jhu.edu:/data/tmcquee2/wbunsti1/" + loc + "INFO.OUT",
@@ -421,13 +501,13 @@ def download_remote(loc: str, all=False):
 def main():
     pause = False
     run = False
-    elements = ["Ni", "Cd"]
+    elements = ["Pd", "Ru", "Ag", "Pt"]
     if run:
         cfgs = Utils.MPSearch.get_configs(elements)
-        if os.path.exists("running_configs"+str(elements)+".txt"):
-            warn("running_configs"+str(elements)+".txt exists already, make sure to download and delete file")
+        if os.path.exists("running_configs" + str(elements) + ".txt"):
+            warn("running_configs" + str(elements) + ".txt exists already, make sure to download and delete file")
             return 0
-        running = open("running_configs"+str(elements)+".txt", "w+")
+        running = open("running_configs" + str(elements) + ".txt", "w+")
         if not os.path.exists("completed_runs.txt"):
             tmp = open("completed_runs.txt", "w")
             tmp.close()
@@ -438,7 +518,7 @@ def main():
             if config["MatID"] not in comp_lines:
                 if pause:
                     time.sleep(30)
-                running.write(config["MatID"]+"\n")
+                running.write(config["MatID"] + "\n")
                 from_config(config)
         running.close()
     else:
@@ -447,10 +527,10 @@ def main():
         for line in downloads.readlines():
             if pause:
                 time.sleep(30)
-            if download_remote("data/TIProj/"+line[:-1]+"/"):
+            if download_remote("data/TIProj/" + line[:-1] + "/"):
                 completed.write(line)
             else:
-                print(line[:-1]+" failed to download")
+                print(line[:-1] + " failed to download")
         completed.close()
         downloads.close()
 

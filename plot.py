@@ -802,15 +802,15 @@ def plot(config, mat: pymatgen.core.structure.Structure, options=None, spins=Fal
         plot_orb_DOS(config, mat, ax1, both_spins=spins, el_orbs=el_orbs, energy_range=energy_range,
                      dos_range=dos_range, num_points=num_points)
     elif "OSDOS" in options:
-        plot_orb_site_DOS(config, mat, ax3, both_spins=spins, el_orbs=el_orbs, num_points=num_points)
+        plot_orb_site_DOS(config, mat, ax2, both_spins=spins, el_orbs=el_orbs, num_points=num_points)
     elif "OADOS" in options:
         plot_orb_ang_DOS(config, mat, ax1, both_spins=spins, el_orbs=el_orbs, energy_range=energy_range, num_points=num_points)
     elif "OASDOS" in options:
-        plot_orb_ang_site_DOS(config, mat, ax3, both_spins=spins, el_orbs=el_orbs, ele_sites=sites, num_points=num_points)
+        plot_orb_ang_site_DOS(config, mat, ax2, both_spins=spins, el_orbs=el_orbs, ele_sites=sites, num_points=num_points)
     if "EDOS" in options:
         plot_ele_DOS(config, mat, ax1, both_spins=spins, energy_range=energy_range, dos_range=dos_range, num_points=num_points)
     if "TDOS" in options:
-        plot_TDOS(config, mat, ax3, both_spins=spins, num_points=num_points)
+        plot_TDOS(config, mat, ax2, both_spins=spins, num_points=num_points)
 
     if "SBS" in options:
         plot_spin(config, mat, ax2)
@@ -828,7 +828,7 @@ def plot(config, mat: pymatgen.core.structure.Structure, options=None, spins=Fal
         tmp.remove_oxidation_states()
         form = tmp.composition.reduced_composition.to_latex_string().replace("$_{1}$", "")
         ax2.set_title(form + " Band Structure")
-        ax3.set_title(form + " DOS")
+        #ax3.set_title(form + " DOS")
         ax1.set_title(form + " DOS")
     ax2.set_ylabel("$E-E_f (eV)$")
     plt.ylim(energy_range)
