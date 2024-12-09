@@ -13,7 +13,11 @@ def search_mp_element_combos(elements: list[str], num_combos=2, print_mats=False
     for combo in itertools.combinations(elements, num_combos):
         API_KEY = "cZPQqY0nH2aOGBqCGBfbibyF00XJZXWh"
         with MPRester(API_KEY) as mpr:
-            data += mpr.materials.summary.search(elements=list(combo), is_stable=True, all_fields=False, band_gap=[0.0,0.5],
+            data += mpr.materials.summary.search(elements=list(combo), theoretical=True, energy_above_hull=(0.0, 0.15),
+                                                 all_fields=False, band_gap=(0.0, 0.5),
+                                                 fields=["composition", "material_id", "structure"])
+            data += mpr.materials.summary.search(elements=list(combo), theoretical=False, all_fields=False,
+                                                 band_gap=(0.0, 0.5),
                                                  fields=["composition", "material_id", "structure"])
     if print_mats:
         for mat in data:
@@ -85,7 +89,7 @@ def gen_cfg(matid, mat):
         "monitor": False,
         "slurmparams": {
             "job-name": 0,
-            "time": "48:00:00"
+            "time": "72:00:00"
         }
     }
 

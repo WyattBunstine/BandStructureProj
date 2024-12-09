@@ -15,7 +15,7 @@ import yaml
 
 def main():
 
-    config = "/home/wyatt/PycharmProjects/BandStructureProj/data/Li2CuO2/Li2CuO2_phonon_calc_2.json"
+    config = "/home/wyatt/PycharmProjects/BandStructureProj/data/Li2CuO2/Li2CuO2_phonon_calc_4.json"
     with open(config) as f:
         config = json.load(f)
     mat = pymatgen.core.structure.Structure.from_file(config["CIF"])
@@ -36,7 +36,9 @@ def main():
     band["lattice"] = [str(el) for el in prim.lattice.matrix.tolist()]
     #crystal sites
     points = []
-    for site in prim.sites:
+    sorted_sites = prim.sites
+    sorted_sites.sort(key=lambda Site: Site.specie.symbol)
+    for site in sorted_sites:
         site_dict = {}
         site_dict["symbol"] = site.specie.symbol
         site_dict["coordinates"] = str(prim.lattice.get_fractional_coords(site.coords).tolist())
@@ -53,7 +55,7 @@ def main():
     eigenvectors = []
     atom_eigenvector = []
     labels = {1: "*$\\Gamma$*", 26: "*$X$*", 51: "*$S$*", 76: "*$R$*"}
-    with open("/home/wyatt/PycharmProjects/BandStructureProj/data/Li2CuO2/Li2CuO2_phonon_2/PHONON.OUT") as phonon_file:
+    with open("/home/wyatt/PycharmProjects/BandStructureProj/data/Li2CuO2/Li2CuO2_phonon_4/PHONON.OUT") as phonon_file:
         for line in phonon_file:
             line = line.split()
             if "q-point," in line:
@@ -82,7 +84,7 @@ def main():
                     eigenvecs["eigenvector"] = eigenvectors
                     bands.append(eigenvecs)
                     eigenvecs = {}
-                #need to convert the frequencies from hartree to Thz, conversion is 1h = 6579.6897 mEv
+                #need to convert the frequencies from hartree to Thz, conversion is 1h = 6579.6897 Thz
                 eigenvecs["frequency"] = float(line[1]) * 6579.6897
                 eigenvectors = []
                 atom_eigenvector = []
@@ -112,7 +114,7 @@ def main():
         yaml.Dumper.ignore_aliases = lambda *args: True
         yaml.dump(band, stream, sort_keys=False)
     with open("tmp_band.yaml") as tmp:
-        with open("Li2CuO2_phonon_2.yaml", "w+") as stream:
+        with open("Li2CuO2_phonon_4.yaml", "w+") as stream:
             for line in tmp.readlines():
                 line = line.replace('\'', "")
                 line = line.replace('*', "\'")

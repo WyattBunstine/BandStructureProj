@@ -13,11 +13,13 @@ import subprocess
 import time
 import shutil
 from pymatgen.symmetry.analyzer import SpacegroupAnalyzer
+import plot
 
 ROUNDING = 4
 numBandPoints = 400
 BtoA = 0.52917721090  # 1 bohr radius is 0.52 angstroms
 HtoEv = 27.2114  # 1 Hartree is 27 Electron volts
+API_KEY = "cZPQqY0nH2aOGBqCGBfbibyF00XJZXWh"
 
 
 def validate_config(config):
@@ -202,7 +204,7 @@ def gen_slurm(mat: pymatgen.core.structure.Structure, config):
         config["slurmparams"]["job-name"] = mat.formula
     prefix = ("#!/bin/bash -l\n#SBATCH --job-name=" + str(config["MatID"]).replace(" ", "")
               + "\n#SBATCH --time=" + config["slurmparams"]["time"] + "\n")
-    suffix = '''#SBATCH --ntasks-per-node=2
+    suffix = '''#SBATCH --ntasks-per-node=48
 #SBATCH --nodes=1
 #SBATCH --mail-type=begin
 #SBATCH --mail-type=end
@@ -211,9 +213,9 @@ def gen_slurm(mat: pymatgen.core.structure.Structure, config):
 # MARCC defaults to gcc, must load intel module
 module load intel/2022.2
 cd "$SLURM_SUBMIT_DIR"
-export OMP_NUM_THREADS=8
+export OMP_NUM_THREADS=1
 export OMP_DYNAMIC=false
-export OMP_STACKSIZE=15G
+export OMP_STACKSIZE=25G
 ulimit -Ss unlimited
 mpirun /home/wbunsti1/elk/elk-8.8.26/src/elk >& elk.log\n'''
 
@@ -240,8 +242,8 @@ def run_elk(config):
             # if the old file should be saved
             if not config["overwrite"]:
                 subprocess.run(
-                    ["ssh", "wbunsti1@login.rockfish.jhu.edu", "cd", "/data/tmcquee2/wbunsti1/;", "zip", "-r", "old/" +
-                     config["MatLoc"] + ".zip", config["MatLoc"] + ";", "exit"])
+                    ["ssh", "wbunsti1@login.rockfish.jhu.edu", "cd", "/data/tmcquee2/wbunsti1/;", "zip", "-r", ".old/" +
+                     config["MatID"] + ".zip", config["MatLoc"] + ";", "exit"])
             # remove the old folder
             subprocess.run(
                 ["ssh", "wbunsti1@login.rockfish.jhu.edu", "cd", "/data/tmcquee2/wbunsti1/;", "rm", "-r",
@@ -336,14 +338,16 @@ def run_elk(config):
     return 0
 
 
-def run_phonon(mat: pymatgen.core.structure.Structure, config):
+def run_phonon(mat: pymatgen.core.structure.Structure, config, restart=False):
     if config["remote"]:
         # create directory for this DFT run
-        out = subprocess.run(
-            ["ssh", "wbunsti1@login.rockfish.jhu.edu", "cd", "/data/tmcquee2/wbunsti1/;", "mkdir",
-             config["MatLoc"] + ";", "exit"])
+        out = 0
+        if not restart:
+            out = subprocess.run(
+                ["ssh", "wbunsti1@login.rockfish.jhu.edu", "cd", "/data/tmcquee2/wbunsti1/;", "mkdir",
+                 config["MatLoc"] + ";", "exit"])
         # if the directory exists, clean it
-        if not out.returncode == 0:
+        if not restart and not out.returncode == 0:
             # if the old file should be saved
             if not config["overwrite"]:
                 subprocess.run(
@@ -362,7 +366,7 @@ def run_phonon(mat: pymatgen.core.structure.Structure, config):
                         "wbunsti1@login.rockfish.jhu.edu:/data/tmcquee2/wbunsti1/" + config["MatLoc"]
                         + "elk.in"])
 
-        for i in range(1, config["phonon_workers"]+1):
+        for i in range(1, config["phonon_workers"] + 1):
             config["slurmparams"]["job-name"] = (mat.formula.replace(" ", "") + "_phonon_" + str(i) +
                                                  "/" + str(config["phonon_workers"]))
 
@@ -378,11 +382,12 @@ def run_phonon(mat: pymatgen.core.structure.Structure, config):
 # MARCC defaults to gcc, must load intel module
 module load intel/2022.2
 cd "$SLURM_SUBMIT_DIR"
-export OMP_NUM_THREADS=48
+export OMP_NUM_THREADS=1
 export OMP_DYNAMIC=false
-export OMP_STACKSIZE=15G
+export OMP_STACKSIZE=50G
 ulimit -Ss unlimited\n''')
-            suffix = "mpirun /home/wbunsti1/elk/elk-8.8.26/src/elk >& elk_phonon_" + str(i) + "_of_" + str(config["phonon_workers"]) + ".log\n"
+            suffix = "mpirun /home/wbunsti1/elk/elk-8.8.26/src/elk >& elk_phonon_" + str(i) + "_of_" + str(
+                config["phonon_workers"]) + ".log\n"
             file = open(config["MatLoc"] + "elk_phonon_" + str(i) + ".slurm", 'w+')
             file.write(prefix + middle + suffix)
             file.close()
@@ -438,7 +443,7 @@ def from_config(config):
     if os.path.isdir(config["MatLoc"]):
         if not config["overwrite"]:
             subprocess.run(
-                ["zip", "-r", "data/old/" + config["MatLoc"] + ".zip", config["MatLoc"]])
+                ["zip", "-r", "data/.old/" + config["MatID"] + ".zip", config["MatLoc"]])
         shutil.rmtree(config["MatLoc"])
     os.mkdir(config["MatLoc"])
     if save_cfg:
@@ -467,7 +472,7 @@ def from_config(config):
     return 0
 
 
-def download_remote(loc: str, all=False):
+def download_remote(loc: str, all=False, prefix=None):
     """
     This simply downloads a materials documents from remote.
     :param loc: The material location for which to download
@@ -475,7 +480,15 @@ def download_remote(loc: str, all=False):
     """
 
     #["scp", "-r", "wbunsti1@login.rockfish.jhu.edu:/home/wbunsti1/elk/elk-8.8.26/BSPOperDir/" + loc + "*", loc])
-    if all:
+    if prefix is not None:
+        if isinstance(prefix, str):
+            subprocess.run(
+                ["scp", "-r", "wbunsti1@login.rockfish.jhu.edu:/data/tmcquee2/wbunsti1/" + loc + prefix + "*", loc])
+        elif isinstance(prefix, list):
+            for pref in prefix:
+                subprocess.run(
+                    ["scp", "-r", "wbunsti1@login.rockfish.jhu.edu:/data/tmcquee2/wbunsti1/" + loc + pref + "*", loc])
+    elif all:
         subprocess.run(
             ["scp", "-r", "wbunsti1@login.rockfish.jhu.edu:/data/tmcquee2/wbunsti1/" + loc + "*", loc])
     else:
@@ -494,6 +507,9 @@ def download_remote(loc: str, all=False):
         subprocess.run(
             ["scp", "-r", "wbunsti1@login.rockfish.jhu.edu:/data/tmcquee2/wbunsti1/" + loc + "elk.log",
              loc])
+        subprocess.run(
+            ["scp", "-r", "wbunsti1@login.rockfish.jhu.edu:/data/tmcquee2/wbunsti1/" + loc + "GEO*",
+             loc])
 
     return os.path.exists(loc + "BANDLINES.OUT")
 
@@ -501,7 +517,10 @@ def download_remote(loc: str, all=False):
 def main():
     pause = False
     run = False
-    elements = ["Pd", "Ru", "Ag", "Pt"]
+    download = True
+    plots = True
+
+    elements = ["Cu", "Au", "Sc", "Y"]
     if run:
         cfgs = Utils.MPSearch.get_configs(elements)
         if os.path.exists("running_configs" + str(elements) + ".txt"):
@@ -521,7 +540,7 @@ def main():
                 running.write(config["MatID"] + "\n")
                 from_config(config)
         running.close()
-    else:
+    elif download:
         completed = open("completed_runs.txt", "a")
         downloads = open("running_configs" + str(elements) + ".txt", "r")
         for line in downloads.readlines():
@@ -533,6 +552,27 @@ def main():
                 print(line[:-1] + " failed to download")
         completed.close()
         downloads.close()
+
+    if plots:
+        i = 0
+        completed = open("completed_runs.txt", "r")
+        with MPRester(API_KEY) as mpr:
+            lines = completed.readlines()
+            for line in lines:
+                i += 1
+                if i > 0:
+                    with open("data/TIProj/" + line[:-1] + "/" + line[:-1] + "_config.json") as f:
+                        config = json.load(f)
+                        mat = mpr.get_structure_by_material_id(line[:-1])
+                        plot.plot(config, mat, options=["EDOS", "BS"], spins=True)
+                """try:
+                    with open("data/TIProj/" + line[:-1] + "/" + line[:-1] + "_config.json") as f:
+                        config = json.load(f)
+                        mat = mpr.get_structure_by_material_id(line[:-1])
+                        plot.plot(config, mat, options=["EDOS", "BS"], spins=True)
+                except Exception:
+                    print(line[:-1] + " could not be plotted.")"""
+        completed.close()
 
 
 if __name__ == "__main__":
